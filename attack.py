@@ -174,7 +174,7 @@ def create_adversarial_video(video_path, model_path, model_type, output_path,
         fourcc = cv2.VideoWriter_fourcc(*'HFYU') # Chnaged to HFYU because it is lossless
 
     fps = reader.get(cv2.CAP_PROP_FPS)
-    num_frames = int(reader.get(cv2.CAP_PROP_FRAME_COUNT))
+    num_frames = int(reader.get(cv2.CAP_PROP_FRAME_COUNT)) # 得到视频总帧数
     writer = None
 
     # Face detector
@@ -240,8 +240,11 @@ def create_adversarial_video(video_path, model_path, model_type, output_path,
 
         # 2. Detect with dlib
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # 参数1表示我们对图像进行向上采样1倍，这将使一切变的更大
+        # 进而让我们检测出更多的人脸
         faces = face_detector(gray, 1)
         if len(faces):
+            # 可能有多张脸选最大的
             # For now only take biggest face
             face = faces[0]
 
@@ -252,9 +255,8 @@ def create_adversarial_video(video_path, model_path, model_type, output_path,
 
             
             processed_image = preprocess_image(cropped_face, model_type, cuda = cuda)
-            
+            processed_image.require_grad=True
             # Attack happening here
-
             # white-box attacks
             if attack == "iterative_fgsm":
                 perturbed_image, attack_meta_data = attack_algos.iterative_fgsm(processed_image, model, model_type, cuda)

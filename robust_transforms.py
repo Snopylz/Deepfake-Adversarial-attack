@@ -5,10 +5,12 @@ from torch import autograd
 import numpy
 from torchvision import transforms
 import torchgeometry as tgm
+# torchgeometry             0.1.2 
 
+from kornia.filters import GaussianBlur2d
+from kornia.geometry.transform import get_perspective_transform
+from kornia.geometry.transform import warp_perspective
 
-
-    
 
 def compress_decompress(image,factor,cuda=True):
   # :param image: tensor image
@@ -44,8 +46,8 @@ def gaussian_blur(image,kernel_size=(11,11),sigma=(10.5, 10.5),cuda=True):
   # :param kernel_size (Tuple[int, int]): the size of the kernel
   # :param sigma (Tuple[float, float]): the standard deviation of the kernel
 
-  gauss = tgm.image.GaussianBlur(kernel_size, sigma)
-
+  # gauss = tgm.image.GaussianBlur(kernel_size, sigma) ###
+  gauss = GaussianBlur2d(kernel_size, sigma)
   # blur the image
   img_blur = gauss(image)
 
@@ -79,10 +81,11 @@ def translate_image(image, shift_x = 20, shift_y = 20, cuda=True):
     points_src = points_src.cuda()
     points_dst = points_dst.cuda()
   # compute perspective transform
-  M = tgm.get_perspective_transform(points_src, points_dst)
-
+  # M = tgm.get_perspective_transform(points_src, points_dst)
+  M = get_perspective_transform(points_src, points_dst)
   # warp the original image by the found transform
-  img_warp = tgm.warp_perspective(image, M, dsize=(h, w))
+  # img_warp = tgm.warp_perspective(image, M, dsize=(h, w))
+  img_warp = warp_perspective(image, M, dsize=(h, w))
 
   return img_warp
 

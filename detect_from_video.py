@@ -136,6 +136,7 @@ def test_full_image_network(video_path, model_path, model_type, output_path,
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
     fps = reader.get(cv2.CAP_PROP_FPS)
     num_frames = int(reader.get(cv2.CAP_PROP_FRAME_COUNT))
+    print("frames:", num_frames)
     writer = None
 
     # Face detector

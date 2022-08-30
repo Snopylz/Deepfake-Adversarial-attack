@@ -1,5 +1,6 @@
 
 import os, sys
+from pyexpat import model
 import argparse
 from os.path import join
 import numpy
@@ -29,7 +30,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     p.add_argument('--model_dir', '-mdir', type=str, 
-        default="/data2/faceforensics++_models_subset/face_detection/") #dir contains xception, meso
+        default="faceforensics++_models_subset/face_detection/") #dir contains xception, meso
     p.add_argument('--model_type', '-mtype', type=str, 
         default="xception") #dir contains all_c23.p etc
     p.add_argument('--data_dir', '-data', type=str, 
@@ -64,6 +65,7 @@ def main():
 
     input_folder_path = join(data_dir_path,fake_dir,compression_type,"videos")
     print(input_folder_path)
+    # print(input_folder_path)
     assert os.path.isdir(input_folder_path)
 
     if model_type == "xception":
@@ -71,7 +73,7 @@ def main():
 
     elif model_type == "meso":
         model_path = join(model_dir, "Meso", "Meso4_deepfake.pkl")        
-
+    print(model_path)
     assert os.path.exists(model_path)
 
     adversarial_folder_path = join(experiment_path, model_type, fake_dir,compression_type,"adv_{}".format(attack_type))
