@@ -1,0 +1,1 @@
+python run_experiments.py -data test_videos -mdir faceforensics++_models_subset/face_detection -mtype xception -exp ExpTemp -a robust --faketype Face2Face --cuda --compress

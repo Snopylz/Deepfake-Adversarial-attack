@@ -33,8 +33,6 @@ def predict_with_model(preprocessed_image, model, model_type, post_function=nn.S
     normalized_image = norm_transform(resized_image)
     
     logits = model(normalized_image)
-    
-    logits = model(resized_image) #????为什么多一行
     output = post_function(logits)
 
     # Cast to desired
@@ -111,9 +109,9 @@ def robust_fgsm(input_img, model, model_type, cuda = True,
         all_fooled = True
         # print("list: ", transform_functions)
         # print("测试是否可导")
-        fn = transform_functions[0]
-        # print(fn)
-        tempp = fn(input_var)
+        # fn = transform_functions[0]
+        # # print(fn)
+        # tempp = fn(input_var)
         # print("result", tempp.requires_grad)
         print ("**** Applying Transforms ****")
         
@@ -121,9 +119,10 @@ def robust_fgsm(input_img, model, model_type, cuda = True,
             transform_fn = transform_functions[num]
             transformed_img = transform_fn(input_var)
             prediction, output, logits = predict_with_model(transformed_img, model, model_type, cuda=cuda)
-
+            print("Prediction: ", prediction, "Output: ", output)
             if output[0][0] < desired_acc:
                 all_fooled = False
+            # 为什么不采用计算损失函数的方式?
             loss += torch.clamp( logits[0][1]-logits[0][0] + 10, min = 0.0)
             # loss += loss_criterion(logits, target_var)
 

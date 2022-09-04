@@ -253,7 +253,7 @@ def create_adversarial_video(video_path, model_path, model_type, output_path,
             x, y, size = get_boundingbox(face, width, height)
             cropped_face = image[y:y+size, x:x+size]
 
-            
+            # 默认只将其从PIL转化为Tensor
             processed_image = preprocess_image(cropped_face, model_type, cuda = cuda)
             processed_image.require_grad=True
             # Attack happening here
@@ -273,19 +273,19 @@ def create_adversarial_video(video_path, model_path, model_type, output_path,
                 perturbed_image, attack_meta_data = attack_algos.black_box_attack(processed_image, model, 
                     model_type, cuda, transform_set = {"gauss_blur", "translation", "resize"})
             
-            # Undo the processing of xceptionnet, mesonet
+            # Undo the processing of xceptionnet, mesonet Tensor back to PIL
             unpreprocessed_image = un_preprocess_image(perturbed_image, size)
             image[y:y+size, x:x+size] = unpreprocessed_image
             
-
+            # TODO: 为什么不重新检测人脸？
             cropped_face = image[y:y+size, x:x+size]
+            # 将PIL 转换为Tensor 并未进行其他操作
             processed_image = preprocess_image(cropped_face, model_type, cuda = cuda)
             prediction, output, logits = attack_algos.predict_with_model(processed_image, model, model_type, cuda=cuda)
-
             print (">>>>Prediction for frame no. {}: {}".format(frame_num ,output))
 
+            # 该图片没有进行 preprocess_image 处理
             prediction, output = predict_with_model_legacy(cropped_face, model, model_type, cuda=cuda)
-
             print (">>>>Prediction LEGACY for frame no. {}: {}".format(frame_num ,output))
 
             label = 'fake' if prediction == 1 else 'real'
