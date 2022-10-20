@@ -5,6 +5,113 @@ from dataset.transform import xception_default_data_transforms, mesonet_default_
 import robust_transforms as rt
 import random
 
+import PIL
+import PIL.Image
+
+
+
+class Network(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.netVggOne = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False),
+            torch.nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False)
+        )
+
+        self.netVggTwo = torch.nn.Sequential(
+            torch.nn.MaxPool2d(kernel_size=2, stride=2),
+            torch.nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False),
+            torch.nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False)
+        )
+
+        self.netVggThr = torch.nn.Sequential(
+            torch.nn.MaxPool2d(kernel_size=2, stride=2),
+            torch.nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False),
+            torch.nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False),
+            torch.nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False)
+        )
+
+        self.netVggFou = torch.nn.Sequential(
+            torch.nn.MaxPool2d(kernel_size=2, stride=2),
+            torch.nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False),
+            torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False),
+            torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False)
+        )
+
+        self.netVggFiv = torch.nn.Sequential(
+            torch.nn.MaxPool2d(kernel_size=2, stride=2),
+            torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False),
+            torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False),
+            torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(inplace=False)
+        )
+
+        self.netScoreOne = torch.nn.Conv2d(in_channels=64, out_channels=1, kernel_size=1, stride=1, padding=0)
+        self.netScoreTwo = torch.nn.Conv2d(in_channels=128, out_channels=1, kernel_size=1, stride=1, padding=0)
+        self.netScoreThr = torch.nn.Conv2d(in_channels=256, out_channels=1, kernel_size=1, stride=1, padding=0)
+        self.netScoreFou = torch.nn.Conv2d(in_channels=512, out_channels=1, kernel_size=1, stride=1, padding=0)
+        self.netScoreFiv = torch.nn.Conv2d(in_channels=512, out_channels=1, kernel_size=1, stride=1, padding=0)
+
+        self.netCombine = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=5, out_channels=1, kernel_size=1, stride=1, padding=0),
+            torch.nn.Sigmoid()
+        )
+
+        self.load_state_dict({ strKey.replace('module', 'net'): tenWeight for strKey, tenWeight in torch.hub.load_state_dict_from_url(url='http://content.sniklaus.com/github/pytorch-hed/network-' + 'bsds500' + '.pytorch', file_name='hed-' + 'bsds500').items() })
+    # end
+
+    def forward(self, tenInput):
+        tenInput = tenInput * 255.0
+        tenInput = tenInput - torch.tensor(data=[104.00698793, 116.66876762, 122.67891434], dtype=tenInput.dtype, device=tenInput.device).view(1, 3, 1, 1)
+
+        tenVggOne = self.netVggOne(tenInput)
+        tenVggTwo = self.netVggTwo(tenVggOne)
+        tenVggThr = self.netVggThr(tenVggTwo)
+        tenVggFou = self.netVggFou(tenVggThr)
+        tenVggFiv = self.netVggFiv(tenVggFou)
+
+        tenScoreOne = self.netScoreOne(tenVggOne)
+        tenScoreTwo = self.netScoreTwo(tenVggTwo)
+        tenScoreThr = self.netScoreThr(tenVggThr)
+        tenScoreFou = self.netScoreFou(tenVggFou)
+        tenScoreFiv = self.netScoreFiv(tenVggFiv)
+
+        tenScoreOne = torch.nn.functional.interpolate(input=tenScoreOne, size=(tenInput.shape[2], tenInput.shape[3]), mode='bilinear', align_corners=False)
+        tenScoreTwo = torch.nn.functional.interpolate(input=tenScoreTwo, size=(tenInput.shape[2], tenInput.shape[3]), mode='bilinear', align_corners=False)
+        tenScoreThr = torch.nn.functional.interpolate(input=tenScoreThr, size=(tenInput.shape[2], tenInput.shape[3]), mode='bilinear', align_corners=False)
+        tenScoreFou = torch.nn.functional.interpolate(input=tenScoreFou, size=(tenInput.shape[2], tenInput.shape[3]), mode='bilinear', align_corners=False)
+        tenScoreFiv = torch.nn.functional.interpolate(input=tenScoreFiv, size=(tenInput.shape[2], tenInput.shape[3]), mode='bilinear', align_corners=False)
+
+        return self.netCombine(torch.cat([ tenScoreOne, tenScoreTwo, tenScoreThr, tenScoreFou, tenScoreFiv ], 1))
+    # end
+# end
+
+# def get_hed_face(face_data):
+#     # print(face_data.shape)
+#     # tenInput = torch.FloatTensor((face_data/255.0).transpose(2, 0, 1))
+#     # print(tenInput.shape)
+#     netNetwork = Network().cuda().eval()
+#     intWidth = tenInput.shape[2]
+#     intHeight = tenInput.shape[1]
+#     tenOutput = netNetwork(tenInput.cuda().view(1, 3, intHeight, intWidth))[0, :, :, :].cpu()
+#     return tenOutput
+    
+
+
+
 def predict_with_model(preprocessed_image, model, model_type, post_function=nn.Softmax(dim=1), cuda=True):
     """
     Adapted predict_for_model for attack. Differentiable image pre-processing.
@@ -156,6 +263,63 @@ def robust_fgsm(input_img, model, model_type, cuda = True,
     }
 
     return input_var, meta_data
+
+netNetwork = Network().cuda().eval()
+# add mask combined with iter_fgsm, change alpha  to 2/255
+def iterative_fgsm_mask(input_img, model, model_type, cuda = True, max_iter = 100, alpha = 2/255.0, eps = 1/255.0, desired_acc = 0.99):
+
+    temp = input_img.squeeze()
+    with torch.no_grad():
+        intWidth = temp.shape[2]
+        intHeight = temp.shape[1]
+        tenOutput = netNetwork(temp.cuda().view(1, 3, intHeight, intWidth))
+    
+    
+    
+    input_var = autograd.Variable(input_img, requires_grad=True)
+
+    target_var = autograd.Variable(torch.LongTensor([0]))
+    if cuda:
+        target_var = target_var.cuda()
+
+    iter_no = 0
+    
+    while iter_no < max_iter:
+        prediction, output, logits = predict_with_model(input_var, model, model_type, cuda=cuda)    
+        if (output[0][0] - output[0][1]) > desired_acc:
+            break
+            
+        loss_criterion = nn.CrossEntropyLoss()
+        loss = loss_criterion(logits, target_var)
+        if input_var.grad is not None:
+            input_var.grad.data.zero_() # just to ensure nothing funny happens
+        loss.backward()
+
+        step_adv = input_var.detach() - alpha * torch.sign(input_var.grad.detach())
+        total_pert = step_adv - input_img
+
+        # 添加扰动
+        total_pert = total_pert * tenOutput
+        total_pert = torch.clamp(total_pert, -eps, eps)
+        
+        input_adv = input_img + total_pert
+        input_adv = torch.clamp(input_adv, 0, 1)
+        
+        input_var.data = input_adv.detach()
+
+        iter_no += 1
+
+    l_inf_norm = torch.max(torch.abs((input_var - input_img))).item()
+    print ("L infinity norm", l_inf_norm, l_inf_norm * 255.0)
+    
+    meta_data = {
+        'attack_iterations' : iter_no,
+        'l_inf_norm' : l_inf_norm,
+        'l_inf_norm_255' : round(l_inf_norm * 255.0)
+    }
+
+    return input_var, meta_data
+
 
 def iterative_fgsm(input_img, model, model_type, cuda = True, max_iter = 100, alpha = 1/255.0, eps = 16/255.0, desired_acc = 0.99):
     input_var = autograd.Variable(input_img, requires_grad=True)

@@ -240,6 +240,7 @@ def create_adversarial_video(video_path, model_path, model_type, output_path,
 
         # 2. Detect with dlib
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
         # 参数1表示我们对图像进行向上采样1倍，这将使一切变的更大
         # 进而让我们检测出更多的人脸
         faces = face_detector(gray, 1)
@@ -260,6 +261,8 @@ def create_adversarial_video(video_path, model_path, model_type, output_path,
             # white-box attacks
             if attack == "iterative_fgsm":
                 perturbed_image, attack_meta_data = attack_algos.iterative_fgsm(processed_image, model, model_type, cuda)
+            elif attack == "mask_iterative_fgsm":
+                perturbed_image, attack_meta_data = attack_algos.iterative_fgsm_mask(processed_image, model, model_type, cuda)
             elif attack == "robust":
                 perturbed_image, attack_meta_data = attack_algos.robust_fgsm(processed_image, model, model_type, cuda)
             elif attack == "carlini_wagner":

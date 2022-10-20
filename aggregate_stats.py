@@ -14,14 +14,15 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     p.add_argument('--exp_folder', '-exp', type=str, 
-        default="/data2/DFExperiments") # where sub directories will be created
+        default="./ExpTemp") # where sub directories will be created
     
     args = p.parse_args()
     experiment_dir = args.exp_folder
     
     model_types = ["xception", "meso"]
     fake_types = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
-    compression_types = ["c23", "c40", "raw"]
+    # compression_types = ["c23", "c40", "raw"]
+    compression_types = ["c23"]
     attack_methods = ["robust", "iterative_fgsm", "carlini_wagner", "black_box", "black_box_robust"]
 
 
@@ -39,16 +40,20 @@ def main():
                         
                         for extension in ["", "_compressed", "_23", "_30", "_40"]:
                             experiment_stats[model_type][fake_type][compression_type]["{}{}".format(attack_method, extension)] = {}
+                            #TODO: 
+                            
                             adv_videos_dir = join(experiment_dir, model_type, fake_type, compression_type, "adv_{}{}".format(attack_method, extension))
+                            print("adv_videos_dit: ", adv_videos_dir)
                             if extension in ["_23", "_30", "_40"]:
                                 detected_videos_dir = join(experiment_dir, model_type, fake_type, compression_type, "adv_{}{}_detected".format(attack_method, extension))    
                             else:
                                 detected_videos_dir = join(experiment_dir, model_type, fake_type, compression_type, "adv_{}_detected{}".format(attack_method, extension))
-                            
+                            ###     
+                            print("detected_videos_dir:", detected_videos_dir)
                             if os.path.isdir(adv_videos_dir) and os.path.isdir(detected_videos_dir):
                                 attack_json_files = os.listdir(adv_videos_dir)
                                 attack_json_files = [file for file in attack_json_files if file.endswith("metrics_attack.json")]
-
+                                print(detected_videos_dir)
                                 detect_json_files = os.listdir(detected_videos_dir)
                                 detect_json_files = [file for file in detect_json_files if file.endswith("metrics.json")]
 

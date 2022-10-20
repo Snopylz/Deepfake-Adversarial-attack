@@ -58,7 +58,7 @@ def main():
     compress = args.compress
     cuda = args.cuda
 
-    assert attack_type in ["robust", "iterative_fgsm", "carlini_wagner", "black_box", "black_box_robust"]
+    assert attack_type in ["mask_iterative_fgsm", "robust", "iterative_fgsm", "carlini_wagner", "black_box", "black_box_robust"]
     assert fake_dir in ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
     assert compression_type in ["c23", "c40", "raw"]
     assert model_type in ["xception", "meso"]

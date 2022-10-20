@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from network.xception import xception
 import math
 import torchvision
+from network.classifier import Meso4
 
 
 def return_pytorch04_xception(pretrained=True):
