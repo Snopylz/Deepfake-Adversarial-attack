@@ -1,0 +1,1 @@
+python detect_from_video.py -i ./ExpTemp/xception/Face2Face/c23/adv_robust_compressed -mi faceforensics++_models_subset/face_detection/Meso/Meso4_deepfake.pkl -mt meso -o ./f2f_usemeso_detct_xception/ --cuda
