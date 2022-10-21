@@ -1,0 +1,1 @@
+python run_experiments.py -data test_videos -mdir faceforensics++_models_subset/face_detection -mtype xception -exp iterative_fgsm -a iterative_fgsm --faketype Deepfakes --cuda --compress

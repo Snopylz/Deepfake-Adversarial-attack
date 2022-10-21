@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch import autograd
 import numpy
 from torchvision import transforms
-import torchgeometry as tgm
+# import torchgeometry as tgm
 # torchgeometry             0.1.2 
 
 from kornia.filters import GaussianBlur2d

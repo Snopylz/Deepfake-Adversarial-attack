@@ -11,3 +11,7 @@ __pycache__
 mask_iter_fgsm
 demo_images
 tttttt
+meso_deepfakes
+.vscode
+xception_deepfakes_iter_fgsm
+manipulated_sequences.zip
