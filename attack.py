@@ -336,6 +336,214 @@ def create_adversarial_video(video_path, model_path, model_type, output_path,
         print('Input video file was empty')
 
 
+        
+        
+def create_adversarial_full_video(video_path, model_path, model_type, output_path,
+                            start_frame=0, end_frame=None, attack="iterative_fgsm", 
+                            compress = True, cuda=True, showlabel = True):
+    """
+    Reads a video and evaluates a subset of frames with the a detection network
+    that takes in a full frame. Outputs are only given if a face is present
+    and the face is highlighted using dlib.
+    :param video_path: path to video file
+    :param model_path: path to model file (should expect the full sized image)
+    :param output_path: path where the output video is stored
+    :param start_frame: first frame to evaluate
+    :param end_frame: last frame to evaluate
+    :param cuda: enable cuda
+    :return:
+    """
+    print('Starting: {}'.format(video_path))
+
+    # Read and write
+    reader = cv2.VideoCapture(video_path)
+
+    video_fn = video_path.split('/')[-1].split('.')[0]+'.avi'
+    os.makedirs(output_path, exist_ok=True)
+
+    if compress:
+        fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    else:
+        fourcc = cv2.VideoWriter_fourcc(*'HFYU') # Chnaged to HFYU because it is lossless
+
+    fps = reader.get(cv2.CAP_PROP_FPS)
+    num_frames = int(reader.get(cv2.CAP_PROP_FRAME_COUNT)) # 得到视频总帧数
+    writer = None
+
+    # Face detector
+    face_detector = dlib.get_frontal_face_detector()
+
+    # Load model
+    if model_path is not None:
+        if not cuda:
+            model = torch.load(model_path, map_location = "cpu")
+        else:
+            model = torch.load(model_path)
+        print('Model found in {}'.format(model_path))
+    else:
+        print('No model found, initializing random model.')
+    if cuda:
+        print("Converting mode to cuda")
+        model = model.cuda()
+        for param in model.parameters():
+            param.requires_grad = True
+        print("Converted to cuda")
+
+    # raise Exception()
+    # Text variables
+    font_face = cv2.FONT_HERSHEY_SIMPLEX
+    thickness = 2
+    font_scale = 1
+
+    # Frame numbers and length of output video
+    frame_num = 0
+    assert start_frame < num_frames - 1
+    end_frame = end_frame if end_frame else num_frames
+    pbar = tqdm(total=end_frame-start_frame)
+
+    metrics = {
+        'total_fake_frames' : 0,
+        'total_real_frames' : 0,
+        'total_frames' : 0,
+        'percent_fake_frames' : 0,
+        'probs_list' : [],
+        'attack_meta_data' : [],
+    }
+
+#     while reader.isOpened():
+#     num_frames = int(reader.get(cv2.CAP_PROP_FRAME_COUNT))
+    full_images = []
+    full_shape = []
+    full_gray_images = []
+    full_faces = []
+    full_cropped_faces = []
+    full_x_y_size = list()
+    full_processed_image = list()
+    for i in range(num_frames):
+        _, image = reader.read()
+        if image is None:
+            break
+        full_images.append(image)
+        # image size
+        height, width = image.shape[:2]
+        full_shape.append([height, width])
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        full_gray_images.append(gray)
+        faces = face_detector(gray, 1)
+        
+        if len(faces):
+            face = faces[0]
+            x, y, size = get_boundingbox(face, width, height)
+            full_x_y_size.append([x,y,size])
+        else:
+            face = []
+        full_faces.append(faces)
+        
+        cropped_face = image[y:y+size, x:x+size]
+#         full_cropped_faces.append(cropped_face)
+        
+        processed_image = preprocess_image(cropped_face, model_type, cuda = cuda)
+        processed_image.require_grad=True
+        
+        full_processed_image.append(processed_image)
+        
+#         final_result = torch.cat(full_processed_image, dim=0)
+#         print("final_result", final_result.shape)
+        frame_num += 1
+    # Init output writer
+    if writer is None:
+        writer = cv2.VideoWriter(join(output_path, video_fn), fourcc, fps,
+                                 (height, width)[::-1])
+        
+    # 2. Detect with dlib
+    
+    # 参数1表示我们对图像进行向上采样1倍，这将使一切变的更大
+    # 进而让我们检测出更多的人脸
+    for i in range(num_frames):
+        image = full_images[i]
+        x, y, size = full_x_y_size[i]
+        faces = full_faces[i]
+        
+        if len(faces):
+            if attack == "iterative_fgsm":
+                perturbed_image, attack_meta_data = attack_algos.iterative_fgsm(full_processed_image[i], model, model_type, cuda)
+            elif attack == "mask_iterative_fgsm":
+                perturbed_image, attack_meta_data = attack_algos.iterative_fgsm_mask(processed_image, model, model_type, cuda)
+            elif attack == "robust":
+                perturbed_image, attack_meta_data = attack_algos.robust_fgsm(processed_image, model, model_type, cuda)
+            elif attack == "carlini_wagner":
+                perturbed_image, attack_meta_data = attack_algos.carlini_wagner_attack(processed_image, model_type, model, cuda)
+
+            # black-box attacks
+            elif attack == "black_box":
+                perturbed_image, attack_meta_data = attack_algos.black_box_attack(processed_image, model, model_type, 
+                    cuda, transform_set={}, desired_acc = 0.999999)
+            elif attack == "black_box_robust":
+                perturbed_image, attack_meta_data = attack_algos.black_box_attack(processed_image, model, 
+                    model_type, cuda, transform_set = {"gauss_blur", "translation", "resize"})
+
+            # Undo the processing of xceptionnet, mesonet Tensor back to PIL
+            unpreprocessed_image = un_preprocess_image(perturbed_image, size)
+            
+            image[y:y+size, x:x+size] = unpreprocessed_image
+
+            # TODO: 为什么不重新检测人脸？
+            cropped_face = image[y:y+size, x:x+size]
+            # 将PIL 转换为Tensor 并未进行其他操作
+            processed_image = preprocess_image(cropped_face, model_type, cuda = cuda)
+            prediction, output, logits = attack_algos.predict_with_model(processed_image, model, model_type, cuda=cuda)
+            print (">>>>Prediction for frame no. {}: {}".format(frame_num ,output))
+
+            # 该图片没有进行 preprocess_image 处理
+            prediction, output = predict_with_model_legacy(cropped_face, model, model_type, cuda=cuda)
+            print (">>>>Prediction LEGACY for frame no. {}: {}".format(frame_num ,output))
+
+            label = 'fake' if prediction == 1 else 'real'
+            if label == 'fake':
+                metrics['total_fake_frames'] += 1.
+            else:
+                metrics['total_real_frames'] += 1.
+
+            metrics['total_frames'] += 1.
+            metrics['probs_list'].append(output[0].detach().cpu().numpy().tolist())
+            metrics['attack_meta_data'].append(attack_meta_data)
+
+            if showlabel:
+                # Text and bb
+                # print a bounding box in the generated video
+                x = face.left()
+                y = face.top()
+                w = face.right() - x
+                h = face.bottom() - y
+                label = 'fake' if prediction == 1 else 'real'
+                color = (0, 255, 0) if prediction == 0 else (0, 0, 255)
+                output_list = ['{0:.2f}'.format(float(x)) for x in
+                               output.detach().cpu().numpy()[0]]
+
+                cv2.putText(image, str(output_list)+'=>'+label, (x, y+h+30),
+                            font_face, font_scale,
+                            color, thickness, 2)
+                # draw box over face
+                cv2.rectangle(image, (x, y), (x + w, y + h), color, 2)
+
+#     if frame_num >= end_frame:
+#         break
+            pbar.update(1)
+        writer.write(image)
+    pbar.close()
+
+    metrics['percent_fake_frames'] = metrics['total_fake_frames']/metrics['total_frames']
+
+    with open(join(output_path, video_fn.replace(".avi", "_metrics_attack.json")), "w") as f:
+        f.write(json.dumps(metrics))
+    if writer is not None:
+        writer.release()
+        print('Finished! Output saved under {}'.format(output_path))
+    else:
+        print('Input video file was empty')
+
+
+        
 # Disable
 def blockPrint():
     sys.stdout = open(os.devnull, 'w')

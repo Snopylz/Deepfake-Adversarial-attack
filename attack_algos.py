@@ -265,6 +265,8 @@ def robust_fgsm(input_img, model, model_type, cuda = True,
     return input_var, meta_data
 
 netNetwork = Network().cuda().eval()
+
+
 # add mask combined with iter_fgsm, change alpha  to 2/255
 def iterative_fgsm_mask(input_img, model, model_type, cuda = True, max_iter = 100, alpha = 2/255.0, eps = 1/255.0, desired_acc = 0.99):
 
